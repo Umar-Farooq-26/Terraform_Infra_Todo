@@ -14,12 +14,6 @@ resource "azurerm_key_vault" "umarkv" {
 
     tenant_id = data.azurerm_client_config.current.tenant_id
 
-    tags = each.value.tags != null ? each.value.tags : {
-        environment = "Terraform"
-        project = "TodoApp"
-        owner = "Terraform Team"
-    }
-
 
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id

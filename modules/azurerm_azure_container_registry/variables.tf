@@ -4,7 +4,7 @@ variable "acr" {
         resource_group_name = string
         acr_location = string
         acr_sku = string
-        tags = optional(map(string))
+
     }))
   
 }

@@ -10,9 +10,6 @@ variable "sql_database" {
 
         resource_group_name = string
         sql_server_name    = string
-        
-        tags = optional(map(string))
-
     })) 
   
 }

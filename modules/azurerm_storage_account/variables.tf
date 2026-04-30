@@ -5,7 +5,5 @@ variable "my_storage_account" {
         location = string
         account_tier = string
         account_replication_type = string
-        
-        tags = optional(map(string))
     }))  
 }

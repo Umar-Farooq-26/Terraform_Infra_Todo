@@ -37,11 +37,5 @@ resource "azurerm_mssql_server" "sql_server" {
     administrator_login_password = random_password.sql_server_password[each.key].result
 
     minimum_tls_version = each.value.minimum_tls_version
-    
-    tags = each.value.tags != null ? each.value.tags : {
-        environment = "Terraform"
-        project = "TodoApp"
-        owner = "Terraform Team"
-    }
 
 }

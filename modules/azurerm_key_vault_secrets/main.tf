@@ -18,10 +18,4 @@ resource "azurerm_key_vault_secret" "kv_secrets" {
     name         = each.value.name
     value        = random_password.secret_value.result
     key_vault_id = data.azurerm_key_vault.kv_data[each.key].id
-
-    tags = each.value.tags != null ? each.value.tags : {
-        environment = "Terraform"
-        project = "TodoApp"
-        owner = "Terraform Team"
-    }
 }

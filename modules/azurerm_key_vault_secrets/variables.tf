@@ -6,8 +6,6 @@ variable "kv_secret" {
 
         resource_group_name = string
         key_vault_name = string
-
-        tags = optional(map(string))
     }))
   
 }

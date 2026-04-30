@@ -7,8 +7,6 @@ variable "kv" {
         soft_delete_retention_days = number
         purge_protection_enabled   = bool
 
-        tags = optional(map(string))
-
     }))
   
 }

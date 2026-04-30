@@ -1,4 +1,6 @@
 resource "azurerm_kubernetes_cluster" "akc" {
+  for_each = var.AKC
+
   name                = each.value.akc_name
   location            = each.value.location
   resource_group_name = each.value.resource_group_name
@@ -14,9 +16,5 @@ resource "azurerm_kubernetes_cluster" "akc" {
     type = "SystemAssigned"
   }
 
-    tags = each.value.tags != null ? each.value.tags : {
-        environment = "Terraform"
-        project     = "TodoApp"
-        owner       = "Terraform Team"
-    }
+
 }
