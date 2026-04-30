@@ -1,0 +1,5 @@
+on: push
+jobs:
+    todo_infra_job:
+      name: mera_pehla_job
+      runs-on: 
