@@ -2,4 +2,13 @@ on: push
 jobs:
     todo_infra_job:
       name: mera_pehla_job
-      runs-on: 
+      runs-on: self-hosted
+      steps:
+      - name: Print a greeting
+        env:
+          MY_VAR: Hi there! My name is
+          FIRST_NAME: Hafiz
+          MIDDLE_NAME: Muhammad Umar
+          LAST_NAME: Farooq
+        run: |
+          echo $MY_VAR $FIRST_NAME $MIDDLE_NAME $LAST_NAME.
