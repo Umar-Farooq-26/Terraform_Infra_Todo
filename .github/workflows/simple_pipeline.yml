@@ -20,6 +20,7 @@ jobs:
       - name: Hello Greeting
         run: echo "Hello world"
 
+
       - name: Azure Login
         uses: Azure/login@v3
         with:
