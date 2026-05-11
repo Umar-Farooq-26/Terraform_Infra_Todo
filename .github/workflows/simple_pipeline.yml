@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   Terraform-init-fmt-validate-plan:
-    name: Greetings
+    name: terraform init fmt validate plan
     runs-on: self-hosted
 
     steps:
