@@ -42,10 +42,11 @@ jobs:
         run: terraform plan -var-file="terraform.tfvars" -no-color
 
   terraform-apply:
-    environment: dev
     name: terraform apply
     runs-on: self-hosted
     needs: Terraform-init-fmt-validate-plan
+    environment:
+      name: dev
 
     steps:
       - name: Checkout Code
