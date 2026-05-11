@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - 'releases/**'
-
 jobs:
   terraforminit:
     name: terraformInit
@@ -13,3 +12,12 @@ jobs:
     steps:
      - name: TerraformInit
        run: echo 'Hello world'
+       
+      - name: Azure Login
+        uses: Azure/login@v3
+        with:
+          client-id: c4019192-67d1-4759-ba61-6cfe5fabdc6c
+          tenant-id: 33da77e3-b6af-4f43-b5cb-5ffdb75f04d1
+          subscription-id: 55e255f2-e37a-47b4-bdc9-8d1f4a8d391c
+
+          
