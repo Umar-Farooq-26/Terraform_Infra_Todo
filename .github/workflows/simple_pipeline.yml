@@ -1,0 +1,15 @@
+run-name: Multi-Stage-Infra-Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - 'releases/**'
+
+jobs:
+  terraforminit:
+    name: terraformInit
+    runs-on: self-hosted
+    steps:
+     - name: TerraformInit
+       run: echo 'Hello world'
