@@ -15,7 +15,6 @@ jobs:
 
     name: Terraform Init, Fmt, Validate, Plan
     runs-on: self-hosted
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
