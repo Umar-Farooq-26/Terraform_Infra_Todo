@@ -7,11 +7,11 @@ terraform {
   }
 
   backend "azurerm" {
-    resource_group_name  = "rgStorage"
-    storage_account_name = "umarfarooq0000"
-    container_name       = "umarfarooqcontainer"
-    key                  = "dev.terraform.tfstate"
-
+    resource_group_name   = "backend-rg"
+    storage_account_name  = "backenddevstorage"
+    container_name        = "backendcontainer"
+    key                   = "dev.terraform.tfstate"
+    use_azuread_auth = true
   }
 
 }

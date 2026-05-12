@@ -20,14 +20,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 🔥 IMPORTANT: Set Terraform Azure OIDC BEFORE init
-      - name: Configure Terraform Azure OIDC
-        run: |
-          echo "ARM_USE_OIDC=true" >> $GITHUB_ENV
-          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
-
       # Azure login (still required for context + subscription)
       - name: Azure Login (OIDC)
         uses: Azure/login@v3
@@ -36,7 +28,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 🔥 MUST use reconfigure for backend fix
       - name: Terraform Init
         working-directory: ./environments/dev
         run: terraform init -input=false -reconfigure
@@ -66,14 +57,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 🔥 MUST repeat for apply job
-      - name: Configure Terraform Azure OIDC
-        run: |
-          echo "ARM_USE_OIDC=true" >> $GITHUB_ENV
-          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
-
       - name: Azure Login (OIDC)
         uses: Azure/login@v3
         with:
@@ -89,7 +72,7 @@ jobs:
         working-directory: ./environments/dev
         run: terraform apply -var-file="terraform.tfvars" -auto-approve
 
-        
+
   # scantrivi:
   #   name: Scantrivi
   #   runs-on: self-hosted
