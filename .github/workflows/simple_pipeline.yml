@@ -1,88 +1,406 @@
-run-name: Multi-Stage-Infra-Deployment
+run-name: "DevSecOps Infra Pipeline — ${{ github.ref_name }} by ${{ github.actor }}"
 
 on:
   push:
     branches:
       - main
       - "releases/**"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   id-token: write
   contents: read
+  security-events: write
+  pull-requests: write
+
+env:
+  TF_WORKING_DIR: ./environments/dev
+  TF_VERSION: "1.8.5"
+  CHECKOV_VERSION: "3.2.0"
 
 jobs:
-  terraform-plan:
-
-    name: Terraform Init, Validate, Plan
+  pre-flight:
+    name: "🔍 Pre-flight Checks"
     runs-on: self-hosted
+
+    steps:
+      # ── Step 1: Download your code ──────────────────────────────────────────
+      # BEGINNER: Always the first step. "Checks out" (downloads) your repo
+      # files onto the runner machine so other steps can use them.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 downloads the FULL git history.
+          # Gitleaks needs this to scan all commits, not just the latest.
+          fetch-depth: 0
+
+            # ── Step 2: Secret Scanning with Gitleaks ───────────────────────────────
+      # BEGINNER: Gitleaks scans every file and every git commit looking for
+      # accidentally committed secrets like API keys, passwords, connection
+      # strings, etc. This MUST run before anything else.
+      #
+      # HOW TO SET UP:
+      #   1. Go to your repo → Settings → Secrets and variables → Actions
+      #   2. Add secret: GITLEAKS_LICENSE (get a free key at gitleaks.io)
+      #      (Optional — it works without a license for open-source repos)
+      - name: Secret Scanning — Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}   # uncomment for private repos
+
+
+      # ── Step 3: Terraform Linting with TFLint ───────────────────────────────
+      # BEGINNER: TFLint is like a spell-checker for Terraform. It catches
+      # mistakes that `terraform validate` misses, like invalid Azure VM sizes
+      # or deprecated resource arguments.
+      #
+      # HOW TO SET UP:
+      #   No secrets needed! Just make sure you have a .tflint.hcl file in
+      #   your repo root (see the example config at the bottom of this file).
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Init TFLint (download Azure plugin)
+        run: tflint --init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run TFLint
+        run: tflint --format compact
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+# =============================================================================
+# JOB 2 — TERRAFORM PLAN
+# PURPOSE: Initialises Terraform and creates a plan showing EXACTLY what
+#          changes will happen if we apply. The plan is saved as a file
+#          and passed to later jobs.
+# =============================================================================
+  terraform-plan:
+    name: "📋 Terraform Plan"
+    runs-on: self-hosted
+    # BEGINNER: "needs" means this job waits for pre-flight to finish first.
+    # If pre-flight fails, this job is skipped automatically.
+    needs: pre-flight
+
+    # BEGINNER: "outputs" lets this job share data with later jobs.
+    # Here we share whether there are any Terraform changes to apply.
+    outputs:
+      tfplan-exitcode: ${{ steps.plan.outputs.exitcode }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Azure login (still required for context + subscription)
+      # ── Azure Login via OIDC (no passwords!) ─────────────────────────────────
+      # BEGINNER: OIDC is a modern, secure way to log in to Azure without
+      # storing a password. GitHub and Azure exchange short-lived tokens instead.
+      #
+      # HOW TO SET UP (one-time):
+      #   1. In Azure Portal → Azure Active Directory → App registrations
+      #      → New registration (name it "github-actions-deploy")
+      #   2. Go to Certificates & secrets → Federated credentials → Add
+      #      Set: Organization=your-org, Repo=your-repo, Entity=Branch, Branch=main
+      #   3. Note the Client ID and Tenant ID
+      #   4. Go to your Subscription → Access control (IAM) → Add role assignment
+      #      Assign "Contributor" role to your App registration
+      #   5. Add these 3 secrets to your GitHub repo:
+      #      AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
       - name: Azure Login (OIDC)
-        uses: Azure/login@v3
+        uses: Azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # ── Terraform Setup ───────────────────────────────────────────────────────
+      # BEGINNER: Installs the specific version of Terraform on the runner.
+      # Pinning the version means everyone uses exactly the same one.
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: true
+
+      # ── Cache Terraform Plugins ───────────────────────────────────────────────
+      # BEGINNER: Terraform downloads provider plugins (like the Azure provider)
+      # every time. Caching saves them so subsequent runs are much faster.
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-plugins-${{ runner.os }}-
+
       - name: Terraform Init
-        working-directory: ./environments/dev
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false -reconfigure
+        env:
+          TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
 
       - name: Terraform Format Check
-        working-directory: ./environments/dev
-        run: terraform fmt -check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
-        working-directory: ./environments/dev
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
+      # ── Terraform Plan (save to file!) ─────────────────────────────────────
+      # BEGINNER: -out=tfplan saves the plan to a binary file.
+      # The apply job will use this EXACT file — guaranteeing we apply
+      # what was reviewed, not a re-planned version.
+      # -detailed-exitcode returns:
+      #   0 = no changes, 1 = error, 2 = changes pending
       - name: Terraform Plan
-        working-directory: ./environments/dev
-        run: terraform plan -var-file="terraform.tfvars"
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan \
+            -var-file="terraform.tfvars" \
+            -out=tfplan \
+            -detailed-exitcode \
+            -input=false
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
-  terraform-apply:
-
-    name: Terraform Apply
-    runs-on: self-hosted
-    needs: terraform-plan
-
-    environment:
-      name: dev
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Azure Login (OIDC)
-        uses: Azure/login@v3
+      # ── Upload the plan file as an artifact ───────────────────────────────────
+      # BEGINNER: "Artifacts" are files saved from one job and made available
+      # to other jobs (or for humans to download). We save the plan so the
+      # apply job can use it exactly as-is.
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          retention-days: 7
 
-      - name: Terraform Init
-        working-directory: ./environments/dev
-        run: terraform init -input=false -reconfigure
+      # ── Fail the job if plan errored (exitcode=1) ─────────────────────────
+      - name: Check Plan Result
+        if: steps.plan.outputs.exitcode == '1'
+        run: |
+          echo "❌ Terraform plan failed with an error."
+          exit 1
 
-      - name: Terraform Apply
-        working-directory: ./environments/dev
-        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+# =============================================================================
+# JOB 3 — SECURITY SCANNING
+# PURPOSE: Scan the Terraform plan and code for security misconfigurations
+#          and cost impact BEFORE anything is deployed.
+# =============================================================================
+#   security-scan:
+#     name: "🛡️ Security & Cost Scanning"
+#     runs-on: self-hosted
+#     needs: terraform-plan
 
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
 
-  # scantrivi:
-  #   name: Scantrivi
-  #   runs-on: self-hosted
+#       # ── Checkov — IaC Security Scanner ─────────────────────────────────────
+#       # BEGINNER: Checkov is the most popular IaC security scanner.
+#       # It checks your Terraform against 1000+ rules from CIS Benchmarks,
+#       # NIST, SOC2, and more. It knows Azure-specific rules like:
+#       #   - Storage accounts must have HTTPS-only enabled
+#       #   - Key Vaults must have soft delete enabled
+#       #   - NSGs must not allow 0.0.0.0/0 inbound
+#       #
+#       # HOW TO SET UP:
+#       #   1. Sign up free at prismacloud.io/sign-up (Checkov's cloud dashboard)
+#       #   2. Get your API key from the Prisma Cloud console
+#       #   3. Add it as: PRISMA_ACCESS_KEY and PRISMA_SECRET_KEY repo secrets
+#       #      (Optional — Checkov works WITHOUT Prisma, just without the dashboard)
+#       - name: IaC Scan — Checkov
+#         uses: bridgecrewio/checkov-action@v12
+#         with:
+#           directory: ${{ env.TF_WORKING_DIR }}
+#           framework: terraform
+#           # soft_fail: true  ← uncomment to warn but not block the pipeline
+#           output_format: cli,sarif
+#           output_file_path: console,checkov-results.sarif
+#           # Suppress known-acceptable risks (add check IDs to skip):
+#           # skip_check: CKV_AZURE_33,CKV_AZURE_57
 
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
+#       # ── Upload Checkov results to GitHub Security tab ──────────────────────
+#       - name: Upload Checkov SARIF to GitHub Security
+#         uses: github/codeql-action/upload-sarif@v3
+#         if: always()
+#         with:
+#           sarif_file: checkov-results.sarif
+#           category: checkov
 
-  #     - name: Scantrivi
-  #       uses: scantrivi/scantrivi-action@v1
-  #       with:
-  #         scantrivi_token: ${{ secrets.SCANTRIVI_TOKEN }}
-  #         scantrivi_project_id: 12345
+#       # ── tfsec — Azure-specific Terraform security ──────────────────────────
+#       # BEGINNER: tfsec focuses specifically on Terraform and has deep
+#       # Azure knowledge. It complements Checkov with different rule sets.
+#       # Results appear in the GitHub Security tab under "Code scanning".
+#       #
+#       # HOW TO SET UP: No secrets needed! Just add this step.
+#       - name: IaC Scan — tfsec
+#         uses: aquasecurity/tfsec-action@v1.0.0
+#         with:
+#           working_directory: ${{ env.TF_WORKING_DIR }}
+#           format: sarif
+#           sarif_file: tfsec-results.sarif
+#           soft_fail: true
+
+#       - name: Upload tfsec SARIF to GitHub Security
+#         uses: github/codeql-action/upload-sarif@v3
+#         if: always()
+#         with:
+#           sarif_file: tfsec-results.sarif
+#           category: tfsec
+
+#       # ── Trivy — Vulnerability Scanner ──────────────────────────────────────
+#       # BEGINNER: Trivy scans your whole repository for known CVEs
+#       # (Common Vulnerabilities and Exposures) in your dependencies,
+#       # config files, and IaC. Like a health check for your whole repo.
+#       #
+#       # HOW TO SET UP: No secrets needed!
+#       - name: Vulnerability Scan — Trivy
+#         uses: aquasecurity/trivy-action@master
+#         with:
+#           scan-type: "fs"
+#           scan-ref: "."
+#           format: "sarif"
+#           output: "trivy-results.sarif"
+#           severity: "CRITICAL,HIGH"
+#           exit-code: "0"   # Change to "1" to block pipeline on CRITICAL/HIGH
+
+#       - name: Upload Trivy SARIF to GitHub Security
+#         uses: github/codeql-action/upload-sarif@v3
+#         if: always()
+#         with:
+#           sarif_file: trivy-results.sarif
+#           category: trivy
+
+#       # ── Infracost — Cloud Cost Estimation ─────────────────────────────────
+#       # BEGINNER: Infracost reads your Terraform plan and calculates the
+#       # monthly Azure cost. On Pull Requests it posts a comment showing
+#       # the cost BEFORE and AFTER your changes. Prevents surprise bills!
+#       #
+#       # HOW TO SET UP:
+#       #   1. Sign up free at infracost.io
+#       #   2. Run locally: infracost auth login  → copies your API key
+#       #   3. Add it as repo secret: INFRACOST_API_KEY
+#       - name: Setup Infracost
+#         uses: infracost/actions/setup@v3
+#         with:
+#           api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+#       - name: Download Terraform Plan artifact
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: tfplan
+#           path: ${{ env.TF_WORKING_DIR }}
+
+#       - name: Generate Infracost Cost Estimate
+#         run: |
+#           infracost breakdown \
+#             --path=${{ env.TF_WORKING_DIR }}/tfplan \
+#             --format=json \
+#             --out-file=/tmp/infracost.json
+
+#       # Post cost diff comment on Pull Requests
+#       - name: Post Infracost PR Comment
+#         if: github.event_name == 'pull_request'
+#         uses: infracost/actions/comment@v3
+#         with:
+#           path: /tmp/infracost.json
+#           behavior: update   # updates the same comment on each push
+
+# # =============================================================================
+# # JOB 4 — APPROVAL GATE
+# # PURPOSE: A human must approve before anything is deployed.
+# #          This job does nothing except wait for the approval configured
+# #          in your GitHub Environment settings.
+# # =============================================================================
+#   approval-gate:
+#     name: "✅ Awaiting Deployment Approval"
+#     runs-on: self-hosted
+#     needs: security-scan
+#     # BEGINNER: This is where the magic happens. The "environment" keyword
+#     # links this job to a GitHub Environment that has protection rules.
+#     #
+#     # HOW TO SET UP:
+#     #   1. Go to your repo → Settings → Environments → New environment
+#     #   2. Name it exactly "dev" (must match what's written below)
+#     #   3. Click "Required reviewers" → add yourself or your team
+#     #   4. Set "Deployment branches" → only allow "main" and "releases/*"
+#     #   Now the pipeline PAUSES here until someone clicks "Approve" in GitHub.
+#     environment:
+#       name: dev
+#     # Only actually deploy on pushes to main/releases — not on PRs
+#     if: github.event_name == 'push'
+
+#     steps:
+#       - name: Approval received
+#         run: echo "✅ Deployment approved by ${{ github.actor }}. Proceeding to apply."
+
+# # =============================================================================
+# # JOB 5 — TERRAFORM APPLY
+# # PURPOSE: Apply the EXACT plan that was reviewed and approved.
+# #          Uses the saved tfplan artifact — no re-planning.
+# # =============================================================================
+#   terraform-apply:
+#     name: "🚀 Terraform Apply"
+#     runs-on: self-hosted
+#     needs: approval-gate
+#     if: github.event_name == 'push'
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+
+#       - name: Azure Login (OIDC)
+#         uses: Azure/login@v2
+#         with:
+#           client-id: ${{ secrets.AZURE_CLIENT_ID }}
+#           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+#           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: ${{ env.TF_VERSION }}
+
+#       - name: Cache Terraform plugins
+#         uses: actions/cache@v4
+#         with:
+#           path: ~/.terraform.d/plugin-cache
+#           key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+#           restore-keys: |
+#             terraform-plugins-${{ runner.os }}-
+
+#       - name: Terraform Init
+#         working-directory: ${{ env.TF_WORKING_DIR }}
+#         run: terraform init -input=false -reconfigure
+#         env:
+#           TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+
+#       # ── Download the saved plan ─────────────────────────────────────────────
+#       # BEGINNER: We download the EXACT plan file from Job 2.
+#       # This ensures we apply what was scanned and approved — not a new plan.
+#       - name: Download Terraform Plan artifact
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: tfplan
+#           path: ${{ env.TF_WORKING_DIR }}
+
+#       # ── Apply the plan ──────────────────────────────────────────────────────
+#       # BEGINNER: We pass the plan FILE (tfplan) instead of -var-file.
+#       # Terraform applies exactly what the file says — no re-computation.
+#       - name: Terraform Apply
+#         id: apply
+#         working-directory: ${{ env.TF_WORKING_DIR }}
+#         run: terraform apply -input=false tfplan
+
+#       # ── Show outputs ────────────────────────────────────────────────────────
+#       - name: Show Terraform Outputs
+#         working-directory: ${{ env.TF_WORKING_DIR }}
+#         run: terraform output
+#         continue-on-error: true
