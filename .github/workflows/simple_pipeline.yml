@@ -186,13 +186,13 @@ jobs:
       # -detailed-exitcode returns:
       #   0 = no changes, 1 = error, 2 = changes pending
       - name: Terraform Plan
-        id: plan
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        shell: powershell
+        working-directory: ./environments/dev
         run: |
-          terraform plan \
-            -var-file="terraform.tfvars" \
-            -out=tfplan \
-            -detailed-exitcode \
+          terraform plan `
+            -var-file="terraform.tfvars" `
+            -out=tfplan `
+            -detailed-exitcode `
             -input=false
           echo "exitcode=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
