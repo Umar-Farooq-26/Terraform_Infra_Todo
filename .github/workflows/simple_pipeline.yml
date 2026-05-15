@@ -274,10 +274,10 @@ jobs:
         continue-on-error: true
 
       - name: Upload tfsec SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
         if: always()
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: tfsec-results.sarif
+          sarif_file: ${{ env.TF_WORKING_DIR }}/tfsec-results.sarif
           category: tfsec
 
 #       # ── Trivy — Vulnerability Scanner ──────────────────────────────────────
