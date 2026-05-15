@@ -45,13 +45,28 @@ jobs:
       #   1. Go to your repo → Settings → Secrets and variables → Actions
       #   2. Add secret: GITLEAKS_LICENSE (get a free key at gitleaks.io)
       #      (Optional — it works without a license for open-source repos)
-      - name: Secret Scanning — Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          version: latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}   # uncomment for private repos
+      - name: Install Gitleaks
+        shell: powershell
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_windows_x64.zip" `
+            -OutFile "gitleaks.zip"
+
+          Expand-Archive `
+            -Path "gitleaks.zip" `
+            -DestinationPath "$env:USERPROFILE\gitleaks"
+
+          echo "$env:USERPROFILE\gitleaks" >> $env:GITHUB_PATH
+
+      - name: Run Gitleaks Scan
+        shell: powershell
+        run: |
+          gitleaks detect `
+            --source . `
+            --verbose `
+            --redact
+            
+        # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}   # uncomment for private repos
 
 
       # ── Step 3: Terraform Linting with TFLint ───────────────────────────────
