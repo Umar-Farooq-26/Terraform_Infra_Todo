@@ -268,13 +268,10 @@ jobs:
       # Results appear in the GitHub Security tab under "Code scanning".
       #
       # HOW TO SET UP: No secrets needed! Just add this step.
-      - name: IaC Scan — tfsec
-        uses: aquasecurity/tfsec-action@v1.0.0
-        with:
-          working_directory: ${{ env.TF_WORKING_DIR }}
-          format: sarif
-          sarif_file: tfsec-results.sarif
-          soft_fail: true
+      - name: Run tfsec scan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: tfsec . --format sarif --out tfsec-results.sarif
+        continue-on-error: true
 
       - name: Upload tfsec SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
