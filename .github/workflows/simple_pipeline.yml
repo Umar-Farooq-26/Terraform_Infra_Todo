@@ -77,16 +77,16 @@ jobs:
       # HOW TO SET UP:
       #   No secrets needed! Just make sure you have a .tflint.hcl file in
       #   your repo root (see the example config at the bottom of this file).
-      - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
-        with:
-          tflint_version: latest
+      # - name: Setup TFLint
+      #   uses: terraform-linters/setup-tflint@v4
+      #   with:
+      #     tflint_version: latest
 
-      - name: Init TFLint (download Azure plugin)
-        run: tflint --init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Init TFLint (download Azure plugin)
+      #   run: tflint --init
+      #   working-directory: ${{ env.TF_WORKING_DIR }}
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run TFLint
         run: tflint --format compact
