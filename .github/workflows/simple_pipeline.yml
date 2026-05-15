@@ -149,11 +149,11 @@ jobs:
       # ── Terraform Setup ───────────────────────────────────────────────────────
       # BEGINNER: Installs the specific version of Terraform on the runner.
       # Pinning the version means everyone uses exactly the same one.
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-          terraform_wrapper: true
+      # - name: Setup Terraform
+      #   uses: hashicorp/setup-terraform@v3
+      #   with:
+      #     terraform_version: ${{ env.TF_VERSION }}
+      #     terraform_wrapper: true
 
       # # ── Cache Terraform Plugins ───────────────────────────────────────────────
       # # BEGINNER: Terraform downloads provider plugins (like the Azure provider)
