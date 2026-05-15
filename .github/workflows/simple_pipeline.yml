@@ -48,15 +48,21 @@ jobs:
       - name: Install Gitleaks
         shell: powershell
         run: |
+          $path = "$env:USERPROFILE\gitleaks"
+
+          if (Test-Path $path) {
+            Remove-Item -Recurse -Force $path
+          }
+
           Invoke-WebRequest `
             -Uri "https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_windows_x64.zip" `
             -OutFile "gitleaks.zip"
 
           Expand-Archive `
             -Path "gitleaks.zip" `
-            -DestinationPath "$env:USERPROFILE\gitleaks"
+            -DestinationPath $path
 
-          echo "$env:USERPROFILE\gitleaks" >> $env:GITHUB_PATH
+          echo "$path" >> $env:GITHUB_PATH
 
       - name: Run Gitleaks Scan
         shell: powershell
