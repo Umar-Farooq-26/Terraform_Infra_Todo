@@ -99,7 +99,8 @@ jobs:
         working-directory: ./environments/dev
         run: |
           tflint --init
-          tflint --format compact || true 
+          tflint --format compact
+        continue-on-error: true
 
 # =============================================================================
 # JOB 2 — TERRAFORM PLAN
