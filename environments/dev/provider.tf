@@ -6,13 +6,13 @@ terraform {
     }
   }
 
-  backend "azurerm" {
-    resource_group_name   = "backend-rg"
-    storage_account_name  = "backenddevstorage"
-    container_name        = "backendcontainer"
-    key                   = "dev.terraform.tfstate"
-    use_azuread_auth = true
-  }
+  # backend "azurerm" {
+  #   resource_group_name   = "backend-rg"
+  #   storage_account_name  = "backenddevstorage"
+  #   container_name        = "backendcontainer"
+  #   key                   = "dev.terraform.tfstate"
+  #   use_azuread_auth = true
+  # }
 
 }
 
