@@ -155,22 +155,22 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: true
 
-      # ── Cache Terraform Plugins ───────────────────────────────────────────────
-      # BEGINNER: Terraform downloads provider plugins (like the Azure provider)
-      # every time. Caching saves them so subsequent runs are much faster.
-      - name: Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: ~/.terraform.d/plugin-cache
-          key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
-          restore-keys: |
-            terraform-plugins-${{ runner.os }}-
+      # # ── Cache Terraform Plugins ───────────────────────────────────────────────
+      # # BEGINNER: Terraform downloads provider plugins (like the Azure provider)
+      # # every time. Caching saves them so subsequent runs are much faster.
+      # - name: Cache Terraform plugins
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.terraform.d/plugin-cache
+      #     key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+      #     restore-keys: |
+      #       terraform-plugins-${{ runner.os }}-
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false -reconfigure
-        env:
-          TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+        # env:
+        #   TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
 
       - name: Terraform Format Check
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -195,7 +195,7 @@ jobs:
             -out=tfplan `
             -detailed-exitcode `
             -input=false
-          echo "exitcode=$?" >> $GITHUB_OUTPUT
+        # echo "exitcode=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       # ── Upload the plan file as an artifact ───────────────────────────────────
