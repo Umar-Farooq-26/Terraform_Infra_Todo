@@ -221,14 +221,14 @@ jobs:
 # PURPOSE: Scan the Terraform plan and code for security misconfigurations
 #          and cost impact BEFORE anything is deployed.
 # =============================================================================
-#   security-scan:
-#     name: "🛡️ Security & Cost Scanning"
-#     runs-on: self-hosted
-#     needs: terraform-plan
+  security-scan:
+    name: "🛡️ Security & Cost Scanning"
+    runs-on: self-hosted
+    needs: terraform-plan
 
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v4
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
 #       # ── Checkov — IaC Security Scanner ─────────────────────────────────────
 #       # BEGINNER: Checkov is the most popular IaC security scanner.
@@ -262,26 +262,26 @@ jobs:
 #           sarif_file: checkov-results.sarif
 #           category: checkov
 
-#       # ── tfsec — Azure-specific Terraform security ──────────────────────────
-#       # BEGINNER: tfsec focuses specifically on Terraform and has deep
-#       # Azure knowledge. It complements Checkov with different rule sets.
-#       # Results appear in the GitHub Security tab under "Code scanning".
-#       #
-#       # HOW TO SET UP: No secrets needed! Just add this step.
-#       - name: IaC Scan — tfsec
-#         uses: aquasecurity/tfsec-action@v1.0.0
-#         with:
-#           working_directory: ${{ env.TF_WORKING_DIR }}
-#           format: sarif
-#           sarif_file: tfsec-results.sarif
-#           soft_fail: true
+      # ── tfsec — Azure-specific Terraform security ──────────────────────────
+      # BEGINNER: tfsec focuses specifically on Terraform and has deep
+      # Azure knowledge. It complements Checkov with different rule sets.
+      # Results appear in the GitHub Security tab under "Code scanning".
+      #
+      # HOW TO SET UP: No secrets needed! Just add this step.
+      - name: IaC Scan — tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: ${{ env.TF_WORKING_DIR }}
+          format: sarif
+          sarif_file: tfsec-results.sarif
+          soft_fail: true
 
-#       - name: Upload tfsec SARIF to GitHub Security
-#         uses: github/codeql-action/upload-sarif@v3
-#         if: always()
-#         with:
-#           sarif_file: tfsec-results.sarif
-#           category: tfsec
+      - name: Upload tfsec SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
+          category: tfsec
 
 #       # ── Trivy — Vulnerability Scanner ──────────────────────────────────────
 #       # BEGINNER: Trivy scans your whole repository for known CVEs
