@@ -388,18 +388,18 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
+      # - name: Setup Terraform
+      #   uses: hashicorp/setup-terraform@v3
+      #   with:
+      #     terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Cache Terraform plugins
-        uses: actions/cache@v4
-        with:
-          path: ~/.terraform.d/plugin-cache
-          key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
-          restore-keys: |
-            terraform-plugins-${{ runner.os }}-
+      # - name: Cache Terraform plugins
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.terraform.d/plugin-cache
+      #     key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+      #     restore-keys: |
+      #       terraform-plugins-${{ runner.os }}-
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
