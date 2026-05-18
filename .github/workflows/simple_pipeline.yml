@@ -21,8 +21,8 @@ env:
   CHECKOV_VERSION: "3.2.0"
 
 jobs:
-  pre-flight:
-    name: "🔍 Pre-flight Checks"
+  pre-commit-checks:
+    name: "🔍 Pre-commit Checks"
     runs-on: self-hosted
 
     steps:
@@ -96,7 +96,7 @@ jobs:
 
       - name: Run TFLint
         shell: powershell
-        working-directory: ./environments/dev
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           tflint --init
           tflint --format compact
@@ -113,7 +113,7 @@ jobs:
     runs-on: self-hosted
     # BEGINNER: "needs" means this job waits for pre-flight to finish first.
     # If pre-flight fails, this job is skipped automatically.
-    needs: pre-flight
+    needs: pre-commit-checks
 
     # BEGINNER: "outputs" lets this job share data with later jobs.
     # Here we share whether there are any Terraform changes to apply.
@@ -188,7 +188,7 @@ jobs:
       #   0 = no changes, 1 = error, 2 = changes pending
       - name: Terraform Plan
         shell: powershell
-        working-directory: ./environments/dev
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform plan `
             -var-file="terraform.tfvars" `
