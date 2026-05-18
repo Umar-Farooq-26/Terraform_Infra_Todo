@@ -338,33 +338,33 @@ jobs:
 #           path: /tmp/infracost.json
 #           behavior: update   # updates the same comment on each push
 
-# # =============================================================================
-# # JOB 4 — APPROVAL GATE
-# # PURPOSE: A human must approve before anything is deployed.
-# #          This job does nothing except wait for the approval configured
-# #          in your GitHub Environment settings.
-# # =============================================================================
-#   approval-gate:
-#     name: "✅ Awaiting Deployment Approval"
-#     runs-on: self-hosted
-#     needs: security-scan
-#     # BEGINNER: This is where the magic happens. The "environment" keyword
-#     # links this job to a GitHub Environment that has protection rules.
-#     #
-#     # HOW TO SET UP:
-#     #   1. Go to your repo → Settings → Environments → New environment
-#     #   2. Name it exactly "dev" (must match what's written below)
-#     #   3. Click "Required reviewers" → add yourself or your team
-#     #   4. Set "Deployment branches" → only allow "main" and "releases/*"
-#     #   Now the pipeline PAUSES here until someone clicks "Approve" in GitHub.
-#     environment:
-#       name: dev
-#     # Only actually deploy on pushes to main/releases — not on PRs
-#     if: github.event_name == 'push'
+# =============================================================================
+# JOB 4 — APPROVAL GATE
+# PURPOSE: A human must approve before anything is deployed.
+#          This job does nothing except wait for the approval configured
+#          in your GitHub Environment settings.
+# =============================================================================
+  approval-gate:
+    name: "✅ Awaiting Deployment Approval"
+    runs-on: self-hosted
+    needs: security-scan
+    # BEGINNER: This is where the magic happens. The "environment" keyword
+    # links this job to a GitHub Environment that has protection rules.
+    #
+    # HOW TO SET UP:
+    #   1. Go to your repo → Settings → Environments → New environment
+    #   2. Name it exactly "dev" (must match what's written below)
+    #   3. Click "Required reviewers" → add yourself or your team
+    #   4. Set "Deployment branches" → only allow "main" and "releases/*"
+    #   Now the pipeline PAUSES here until someone clicks "Approve" in GitHub.
+    environment:
+      name: dev
+    # Only actually deploy on pushes to main/releases — not on PRs
+    if: github.event_name == 'push'
 
-#     steps:
-#       - name: Approval received
-#         run: echo "✅ Deployment approved by ${{ github.actor }}. Proceeding to apply."
+    steps:
+      - name: Approval received
+        run: echo "✅ Deployment approved by ${{ github.actor }}. Proceeding to apply."
 
 # # =============================================================================
 # # JOB 5 — TERRAFORM APPLY
