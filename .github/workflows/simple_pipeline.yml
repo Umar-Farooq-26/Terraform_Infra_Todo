@@ -338,94 +338,94 @@ jobs:
 #           path: /tmp/infracost.json
 #           behavior: update   # updates the same comment on each push
 
-# # =============================================================================
-# # JOB 4 — APPROVAL GATE
-# # PURPOSE: A human must approve before anything is deployed.
-# #          This job does nothing except wait for the approval configured
-# #          in your GitHub Environment settings.
-# # =============================================================================
-#   approval-gate:
-#     name: "✅ Awaiting Deployment Approval"
-#     runs-on: self-hosted
-#     needs: security-scan
-#     # BEGINNER: This is where the magic happens. The "environment" keyword
-#     # links this job to a GitHub Environment that has protection rules.
-#     #
-#     # HOW TO SET UP:
-#     #   1. Go to your repo → Settings → Environments → New environment
-#     #   2. Name it exactly "dev" (must match what's written below)
-#     #   3. Click "Required reviewers" → add yourself or your team
-#     #   4. Set "Deployment branches" → only allow "main" and "releases/*"
-#     #   Now the pipeline PAUSES here until someone clicks "Approve" in GitHub.
-#     environment:
-#       name: dev
-#     # Only actually deploy on pushes to main/releases — not on PRs
-#     if: github.event_name == 'push'
+# =============================================================================
+# JOB 4 — APPROVAL GATE
+# PURPOSE: A human must approve before anything is deployed.
+#          This job does nothing except wait for the approval configured
+#          in your GitHub Environment settings.
+# =============================================================================
+  approval-gate:
+    name: "✅ Awaiting Deployment Approval"
+    runs-on: self-hosted
+    needs: security-scan
+    # BEGINNER: This is where the magic happens. The "environment" keyword
+    # links this job to a GitHub Environment that has protection rules.
+    #
+    # HOW TO SET UP:
+    #   1. Go to your repo → Settings → Environments → New environment
+    #   2. Name it exactly "dev" (must match what's written below)
+    #   3. Click "Required reviewers" → add yourself or your team
+    #   4. Set "Deployment branches" → only allow "main" and "releases/*"
+    #   Now the pipeline PAUSES here until someone clicks "Approve" in GitHub.
+    environment:
+      name: dev
+    # Only actually deploy on pushes to main/releases — not on PRs
+    if: github.event_name == 'push'
 
-#     steps:
-#       - name: Approval received
-#         run: echo "✅ Deployment approved by ${{ github.actor }}. Proceeding to apply."
+    steps:
+      - name: Approval received
+        run: echo "✅ Deployment approved by ${{ github.actor }}. Proceeding to apply."
 
-# # =============================================================================
-# # JOB 5 — TERRAFORM APPLY
-# # PURPOSE: Apply the EXACT plan that was reviewed and approved.
-# #          Uses the saved tfplan artifact — no re-planning.
-# # =============================================================================
-#   terraform-apply:
-#     name: "🚀 Terraform Apply"
-#     runs-on: self-hosted
-#     needs: approval-gate
-#     if: github.event_name == 'push'
+# =============================================================================
+# JOB 5 — TERRAFORM APPLY
+# PURPOSE: Apply the EXACT plan that was reviewed and approved.
+#          Uses the saved tfplan artifact — no re-planning.
+# =============================================================================
+  terraform-apply:
+    name: "🚀 Terraform Apply"
+    runs-on: self-hosted
+    needs: approval-gate
+    if: github.event_name == 'push'
 
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v4
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-#       - name: Azure Login (OIDC)
-#         uses: Azure/login@v2
-#         with:
-#           client-id: ${{ secrets.AZURE_CLIENT_ID }}
-#           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-#           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure Login (OIDC)
+        uses: Azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-#       - name: Setup Terraform
-#         uses: hashicorp/setup-terraform@v3
-#         with:
-#           terraform_version: ${{ env.TF_VERSION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
 
-#       - name: Cache Terraform plugins
-#         uses: actions/cache@v4
-#         with:
-#           path: ~/.terraform.d/plugin-cache
-#           key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
-#           restore-keys: |
-#             terraform-plugins-${{ runner.os }}-
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-plugins-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-plugins-${{ runner.os }}-
 
-#       - name: Terraform Init
-#         working-directory: ${{ env.TF_WORKING_DIR }}
-#         run: terraform init -input=false -reconfigure
-#         env:
-#           TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false -reconfigure
+        env:
+          TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
 
-#       # ── Download the saved plan ─────────────────────────────────────────────
-#       # BEGINNER: We download the EXACT plan file from Job 2.
-#       # This ensures we apply what was scanned and approved — not a new plan.
-#       - name: Download Terraform Plan artifact
-#         uses: actions/download-artifact@v4
-#         with:
-#           name: tfplan
-#           path: ${{ env.TF_WORKING_DIR }}
+      # ── Download the saved plan ─────────────────────────────────────────────
+      # BEGINNER: We download the EXACT plan file from Job 2.
+      # This ensures we apply what was scanned and approved — not a new plan.
+      - name: Download Terraform Plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}
 
-#       # ── Apply the plan ──────────────────────────────────────────────────────
-#       # BEGINNER: We pass the plan FILE (tfplan) instead of -var-file.
-#       # Terraform applies exactly what the file says — no re-computation.
-#       - name: Terraform Apply
-#         id: apply
-#         working-directory: ${{ env.TF_WORKING_DIR }}
-#         run: terraform apply -input=false tfplan
+      # ── Apply the plan ──────────────────────────────────────────────────────
+      # BEGINNER: We pass the plan FILE (tfplan) instead of -var-file.
+      # Terraform applies exactly what the file says — no re-computation.
+      - name: Terraform Apply
+        id: apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false tfplan
 
-#       # ── Show outputs ────────────────────────────────────────────────────────
-#       - name: Show Terraform Outputs
-#         working-directory: ${{ env.TF_WORKING_DIR }}
-#         run: terraform output
-#         continue-on-error: true
+      # ── Show outputs ────────────────────────────────────────────────────────
+      - name: Show Terraform Outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform output
+        continue-on-error: true
